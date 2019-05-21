@@ -50,7 +50,7 @@
     <Compile Include="src\ActiveComponents\Components\IdealDCSource.cs" />
     <Compile Include="src\ActiveComponents\Components\DCVoltageSource.cs" />
     <Compile Include="src\AnalysisCircuit\Branch.cs" />
-    <Compile Include="src\AnalysisCircuit\NodeAnalysis.cs" />
+    <Compile Include="src\AnalysisCircuit\NodeAnalyst.cs" />
     <Compile Include="src\Attributes\ACSource.cs" />
     <Compile Include="src\Attributes\DCSource.cs" />
     <Compile Include="src\Circuit.cs" />
@@ -58,6 +58,7 @@
     <Compile Include="src\ActiveComponents\IVoltageSource.cs" />
     <Compile Include="src\Attributes\ActiveComponent.cs" />
     <Compile Include="src\IComponentBase.cs" />
+    <Compile Include="src\PropertyIU.cs" />
     <Compile Include="src\Instrument\Ammeter.cs" />
     <Compile Include="src\Instrument\Voltmeter.cs" />
     <Compile Include="src\OtherComponents\Node.cs" />

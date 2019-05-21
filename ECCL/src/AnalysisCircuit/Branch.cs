@@ -37,7 +37,7 @@ namespace ECCL.src.Analysis
         public List<IComponentBase> AllComponentsInBrunch { get; private set; }
         public List<ICurrentSource> CurrentSources { get; private set; }
         public List<IVoltageSource> VoltageSources { get; private set; }
-
+        // Проводимость ветви
         public Complex Y
         {
             get
@@ -132,6 +132,33 @@ namespace ECCL.src.Analysis
                 else return Direction.Towards;
             }
             else return Direction.Uncknow;
+        }
+
+        public Dictionary<IComponentBase, PropertyIU> GetIUParameterComponents(Dictionary<Node,Complex> nodalVoltages)
+        {
+            Complex I = 0;
+
+            if (DirectionCurrent == Direction.Node_1_to_Node_2)
+            {
+                I = (nodalVoltages[Node_1] - nodalVoltages[Node_2] + VoltageSources.Sum(i=> i.Voltage)) * Y;
+            }
+            else
+            {
+                I = (nodalVoltages[Node_2] - nodalVoltages[Node_1] + VoltageSources.Sum(i => i.Voltage)) * Y;
+            }
+
+            var tempI = I.Magnitude;
+            var retuenedD = new Dictionary<IComponentBase, PropertyIU>();
+
+            foreach(var i in AllComponentsInBrunch)
+            {
+                if (i is Resistor)
+                {
+                    retuenedD.Add(i, new PropertyIU { I = I.Magnitude, U = I.Magnitude * (i as Resistor).Resistance });
+                }
+            }
+
+            return retuenedD;
         }
     }
 }

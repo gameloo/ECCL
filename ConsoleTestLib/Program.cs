@@ -4,7 +4,9 @@ using ECCL.src.Analysis;
 using ECCL.src.Components;
 using ECCL.src.Components.Other;
 using ECCL.src.Components.Passive;
+using System;
 using System.Collections.Generic;
+using System.Threading;
 
 namespace ConsoleTestLib
 {
@@ -14,47 +16,73 @@ namespace ConsoleTestLib
         {
             Circuit circuit = new Circuit();
             var listElements = new List<IComponentBase>();
-            var R1 = new Resistor() { Resistance = 1 };
-            var R2 = new Resistor() { Resistance = 2 };
-            var R3 = new Resistor() { Resistance = 3 };
-            var R4 = new Resistor() { Resistance = 4 };
-            var R5 = new Resistor() { Resistance = 5 };
-            var R6 = new Resistor() { Resistance = 6 };
-            var R7 = new Resistor() { Resistance = 7 };
+            var R1 = new Resistor() { Resistance = 25 };
+            var R2 = new Resistor() { Resistance = 22 };
+            var R3 = new Resistor() { Resistance = 42 };
+            var R4 = new Resistor() { Resistance = 35 };
+            var R5 = new Resistor() { Resistance = 51 };
+            var R6 = new Resistor() { Resistance = 10 };
+            var R7 = new Resistor() { Resistance = 47 };
 
-            var E1 = new DCVoltageSource() { Voltage = 1 };
-            var E2 = new DCVoltageSource() { Voltage = 2 };
-            var E3 = new DCVoltageSource() { Voltage = 3 };
+            var E1 = new DCVoltageSource() { Voltage = 50 };
+            var E2 = new DCVoltageSource() { Voltage = 100 };
 
             var N1 = new Node();
             var N2 = new Node();
             var N3 = new Node();
+            var N4 = new Node();
 
-            R1[1].Connect(R2[0]);
-            N2.Connect(R1[0]);
-            N3.Connect(R2[1]);
+            E1[1].Connect(R1[0]);
+            N1.Connect(E1[0]);
+            N2.Connect(R1[1]);
 
-            R3[1].Connect(E1[0]);
-            N1.Connect(R3[0]);
-            N2.Connect(E1[1]);
-
-            R4[1].Connect(E2[0]);
-            N2.Connect(R4[0]);
-            N3.Connect(E2[1]);
-
-            N2.Connect(E3[1]);
-            N3.Connect(E3[0]);
-
-            R5[1].Connect(R6[0]);
-            N1.Connect(R5[0]);
-            N3.Connect(R6[1]);
+            N1.Connect(R6[0]);
+            N2.Connect(R6[1]);
 
             N1.Connect(R7[0]);
-            N3.Connect(R7[1]);
+            N4.Connect(R7[1]);
 
-            listElements.AddRange(new IComponentBase[] { R1, R2, R3, R4, R5, R6, R7, E1, E2, E3, N1, N2, N3 });
+            N2.Connect(R4[0]);
+            N3.Connect(R4[1]);
+
+            N2.Connect(R3[1]);
+            N4.Connect(R3[0]);
+
+            N4.Connect(R5[0]);
+            N3.Connect(R5[1]);
+
+            E2[1].Connect(R2[0]);
+            N4.Connect(E2[0]);
+            N3.Connect(R2[1]);
+
+            listElements.AddRange(new IComponentBase[] { R1, R2, R3, R4, R5, R6, R7, E1, E2, N1, N2, N3, N4 });
             circuit.Components = listElements;
-            NodeAnalysis.Test(circuit);
+
+            NodeAnalyst nodeAnalyst = new NodeAnalyst(circuit);
+            nodeAnalyst.PropertyChanged += Dotnth;
+
+            nodeAnalyst.StartAnalysis();
+            Console.WriteLine("Started");
+            Thread.Sleep(3000);
+            nodeAnalyst.PauseAnalysis();
+            Console.WriteLine("Pause");
+            Thread.Sleep(3000);
+            nodeAnalyst.PauseAnalysis();
+            Console.WriteLine("Started");
+            Thread.Sleep(3000);
+            nodeAnalyst.StopAnalysis();
+            Console.WriteLine("Stoped");
+            Console.ReadKey();
         }
+
+        public static void Dotnth(object sender, EventArgs e)
+        {
+            var a = (sender as NodeAnalyst).VoltageAndCurrentComponents;
+            foreach (var i in a)
+            {
+                Console.WriteLine($"R = {(i.Key as Resistor).Resistance}  I = {i.Value.I}A U = {i.Value.U}V");
+            }
+        }
+
     }
 }

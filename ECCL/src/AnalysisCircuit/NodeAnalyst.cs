@@ -5,28 +5,100 @@ using MathNet.Numerics.LinearAlgebra.Complex.Solvers;
 using MathNet.Numerics.LinearAlgebra.Solvers;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Numerics;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace ECCL.src.Analysis
 {
-    public static class NodeAnalysis
+    sealed public class NodeAnalyst
     {
-
-        public static void Test(Circuit circuit)
+        // Флаг RunFlag = false для завершения расчетов 
+        private bool RunFlag = true;
+        // Приостановить расчет
+        private bool OnPause = false;
+        // Схема
+        public Circuit Circuit { get; set; }
+        // Показатели тока и напряжения на компонентах 
+        private Dictionary<IComponentBase, PropertyIU> voltageAndCurrentComponents;
+        public Dictionary<IComponentBase, PropertyIU> VoltageAndCurrentComponents
         {
-
-            var branches = GetBranches(circuit);
-            var nodes = circuit.Components.FindAll(i => i is Node).Cast<Node>().ToList();
-            var nv = GetNodalVoltages(nodes, branches);
+            get { return voltageAndCurrentComponents; }
+            set
+            {
+                voltageAndCurrentComponents = value;
+                OnPropertyChanged("VoltageAndCurrentComponents");
+            }
+        }
+        public event PropertyChangedEventHandler PropertyChanged;
+        private void OnPropertyChanged(string name)
+        {
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
         }
 
+        public NodeAnalyst(Circuit circuit)
+        {
+            Circuit = circuit;
+        }
 
+        /// <summary>
+        /// Начать анализ электрической цепи
+        /// </summary>
+        public async void StartAnalysis()
+        {
+            await Task.Run(() => this.StartingAnalysis(Circuit));
+        }
 
+        /// <summary>
+        /// Приостановить/продолжить расчеты
+        /// </summary>        
+        public void PauseAnalysis()
+        {
+            OnPause = !OnPause;
+        }
 
-        static Dictionary<Node, Complex> GetNodalVoltages(List<Node> nodes, List<Branch> branches)
+        /// <summary>
+        /// Остановить расчет
+        /// </summary>
+        public void StopAnalysis()
+        {
+            OnPause = false;
+            RunFlag = false;
+        }
+
+        private void StartingAnalysis(Circuit circuit)
+        {
+            var branches = GetBranches(circuit);
+            var nodes = circuit.Components.FindAll(i => i is Node).Cast<Node>().ToList();
+            do
+            {
+                var copy = new List<Node>();
+                copy.AddRange(nodes.ToArray());
+                VoltageAndCurrentComponents = BeginAnalysis(copy, branches);
+                Thread.Sleep(50);
+                while (OnPause)
+                {
+                    Thread.Sleep(300);
+                }
+            } while (RunFlag);
+
+        }
+        private Dictionary<IComponentBase, PropertyIU> BeginAnalysis(List<Node> nodes, List<Branch> branches)
+        {
+            var nodalVoltages = GetNodalVoltages(nodes, branches);
+            var voltageAndCurrentComponents = new Dictionary<IComponentBase, PropertyIU>();
+            foreach (var br in branches)
+            {
+                var res = br.GetIUParameterComponents(nodalVoltages);
+                voltageAndCurrentComponents = voltageAndCurrentComponents.Concat(res).ToDictionary(x => x.Key, x => x.Value);
+            }
+            return voltageAndCurrentComponents;
+        }
+
+        private Dictionary<Node, Complex> GetNodalVoltages(List<Node> nodes, List<Branch> branches)
         {
             var baseNode = nodes[0];
             nodes.Remove(baseNode);
@@ -38,7 +110,7 @@ namespace ECCL.src.Analysis
             // Правая часть СЛАУ
             var matrixRight = new Complex[nodes.Count];
             // Левая часть СЛАУ
-            var matrixLeft = new Complex[nodes.Count,nodes.Count];
+            var matrixLeft = new Complex[nodes.Count, nodes.Count];
 
             // Заполнение матрицы соединений A
             for (int i = 0; i < nodes.Count; i++)
@@ -70,7 +142,7 @@ namespace ECCL.src.Analysis
                 matrixRight[i] = 0;
                 for (int j = 0; j < matrixJplusYE.Length; j++)
                 {
-                    matrixRight[i] += matrixA[i,j] * matrixJplusYE[j];
+                    matrixRight[i] += matrixA[i, j] * matrixJplusYE[j];
                 }
                 matrixRight[i] *= -1;
             }
@@ -83,7 +155,7 @@ namespace ECCL.src.Analysis
                     if (i == j)
                     {
                         var br = branches.Where(nod => nod.Node_1.Equals(nodes[i]) || nod.Node_2.Equals(nodes[i])).ToList();
-                        matrixLeft[i,j] = 0;
+                        matrixLeft[i, j] = 0;
                         br.ForEach(b => matrixLeft[i, j] += b.Y);
                     }
                     else
@@ -95,7 +167,7 @@ namespace ECCL.src.Analysis
                 }
             }
 
-            var result =  CalculateSystemOfLinearEquations(matrixLeft, matrixRight);
+            var result = CalculateSystemOfLinearEquations(matrixLeft, matrixRight);
 
             var nodalVoltages = new Dictionary<Node, Complex>();
             for (int i = 0; i < nodes.Count; i++)
@@ -107,7 +179,7 @@ namespace ECCL.src.Analysis
             return nodalVoltages;
         }
 
-        public static Complex[] CalculateSystemOfLinearEquations(Complex[,] matrixSystem, Complex[] matrixRightSide)
+        private Complex[] CalculateSystemOfLinearEquations(Complex[,] matrixSystem, Complex[] matrixRightSide)
         {
             var matrixA = DenseMatrix.OfArray(matrixSystem);
             var vectorB = new DenseVector(matrixRightSide);
@@ -118,8 +190,7 @@ namespace ECCL.src.Analysis
             return matrixA.SolveIterative(vectorB, solver, monitor).ToArray();
         }
 
-
-        internal static List<Branch> GetBranches(Circuit circuit)
+        private List<Branch> GetBranches(Circuit circuit)
         {
             var AllComponents = circuit.Components;
             var firstNode = circuit.Components.First(i => i is Node);
@@ -131,7 +202,7 @@ namespace ECCL.src.Analysis
             return ListBranches;
         }
 
-        private static void DFS(Node node, List<Node> passedNodes, List<IComponentBase> passedComponents, List<Branch> branches)
+        private void DFS(Node node, List<Node> passedNodes, List<IComponentBase> passedComponents, List<Branch> branches)
         {
             passedNodes.Add(node);
 
@@ -150,7 +221,7 @@ namespace ECCL.src.Analysis
             }
         }
 
-        private static Node FillBranches(Branch branch, IComponentBase previousComponent, IComponentBase component, List<IComponentBase> passedComponents)
+        private Node FillBranches(Branch branch, IComponentBase previousComponent, IComponentBase component, List<IComponentBase> passedComponents)
         {
             branch.Add(component);
             passedComponents.Add(component);
@@ -166,9 +237,7 @@ namespace ECCL.src.Analysis
             {
                 return FillBranches(branch, component, pin.ConnectedComponent, passedComponents);
             }
-
             throw new InvalidOperationException(); // Схема не замкнута?
         }
-
     }
 }
