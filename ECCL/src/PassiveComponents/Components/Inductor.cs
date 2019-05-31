@@ -1,7 +1,5 @@
 ﻿using ECCL.src.Attributes;
 using ECCL.src.Components.Other;
-using ECCL.src.Components.Passive;
-using System;
 
 namespace ECCL.src.Components.Passive
 {
@@ -29,12 +27,12 @@ namespace ECCL.src.Components.Passive
 
         public double GetResistance()
         {
-            throw new NotImplementedException();
+            return 0.001;
         }
 
         public double GetResistance(double AngularFrequency)
         {
-            throw new NotImplementedException();
+            return AngularFrequency * Inductance;
         }
     }
 }
